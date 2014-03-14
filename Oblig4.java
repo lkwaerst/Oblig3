@@ -1,4 +1,3 @@
-import java.util.ArrayList;
 import java.util.*;
 import java.io.*;
 
@@ -6,21 +5,43 @@ import java.io.*;
 class Oblig4 {
 
     public static void main(String[] args) {
-	new Test();
-	UserInterface use = new UserInterface();
-	use.lesFil();
-	
+
+	Scanner s = new Scanner(System.in);
+	UserInterface use = new UserInterface(s);
+	use.lesFil("filnavn.txt");
+
+	//loekke for aa haandtere unntak fra input
+	while (true) {
+	    try {
+		use.control();
+		break;
+	    }
+
+	    catch (FantIkkeReseptException e) {
+		System.out.println("Fant ikke reseptet, sjekk staving");
+	    }
+	    catch (FantIkkeObjektException e) {
+		System.out.println("Fant ikke i systemet, sjekk staving");
+	    }
+	    catch (InputMismatchException e) {
+		System.out.println("Feil type informasjon, proev igjen");
+		s.next();
+	    }
+	    catch (Exception e) {
+		System.out.println("au da");
+		e.printStackTrace();
+	    }
+	}	
     }
 }
 
-abstract class Person{
+abstract class Person {
     private String navn;
     private int nummer;
-    static int antallPersoner = 1; //
+    static int antallPersoner = 0;
     private YngsteFoerstReseptListe mineResepter = new YngsteFoerstReseptListe();
     
     Person(String navn){
-	System.out.println(navn);
 	this.navn = navn;
 	nummer = antallPersoner++;
     }
@@ -32,14 +53,17 @@ abstract class Person{
     public String getName() {
 	return navn;
     }
-    public Resept getResept(int reseptNr) {
+
+    public Resept getResept(int reseptNr) throws FantIkkeReseptException {
 	return mineResepter.finnResept(reseptNr);
     }
+
     public void skriv() {
 	System.out.println("Navn: " + navn);
 	System.out.println("Personnummer: " + nummer);
     }
 
+    //skriver ut informasjon om alle resepter som er blaa og gyldige
     public void skrivResepter() {
 	int teller = 0;
 	
@@ -52,15 +76,20 @@ abstract class Person{
 	System.out.println("Gyldige blaa resepter: " + teller);
     }
 
+    //returnerer antall resepter med vanedannende legemidler personen har fÃ¥tt
     public int antVaneLegemidler(){
 	int teller = 0;
 	
 	for (Resept r : mineResepter){
-	    if((r.getLegemiddel() instanceof LegemiddelB)&& r.gyldig()){
+	    if(r.getLegemiddel() instanceof LegemiddelB && r.gyldig()){
 		teller++;
 	    }
 	}
 	return teller;
+    }
+
+    public String hentInfo() {
+	return nummer + ", " + navn;
     }
 }
 
@@ -68,24 +97,30 @@ class Kvinne extends Person{
     Kvinne(String navn){
 	super(navn);
     }
-    
+
+    public String hentInfo() {
+	return super.hentInfo() + ", k";
+    }
 }
 
 
 class Mann extends Person{
     Mann(String navn){
 	super(navn);
-    }    
+    } 
+
+    public String hentInfo() {
+	return super.hentInfo() + ", m";
+
+    }
 }
 
-class Lege implements Comparable<Lege>, Lik, Avtale { //) ENDRE HER SENERE
+class Lege implements Comparable<Lege>, Lik {
     private String navn;
     private EldsteFoerstReseptListe resepterSkrevet = new EldsteFoerstReseptListe();
-    private int avtaleNr;
 
-    Lege(String navn, int avtaleNr){
+    Lege(String navn){
 	this.navn = navn;
-	this.avtaleNr = avtaleNr;
     }
 
     public String getNavn() {
@@ -96,7 +131,7 @@ class Lege implements Comparable<Lege>, Lik, Avtale { //) ENDRE HER SENERE
 	return navn.equals(this.navn);
     }
     
-    //returnerer 1 om denne legen kommer foer den andre, eller -1, eller 0 om de er like
+    //returnerer positivt om denne legen kommer foer den andre, ellers negativt. 0 om de er like
     public int compareTo(Lege lege) {
 	return lege.getNavn().compareToIgnoreCase(this.navn);
     }
@@ -105,50 +140,78 @@ class Lege implements Comparable<Lege>, Lik, Avtale { //) ENDRE HER SENERE
 	resepterSkrevet.add(res);
     }
 
+    //skriver ut navn
     public void skriv() {
-	System.out.println("Navn: " + navn);
-	System.out.print("Avtale: ");
-	if(avtaleNr == 0) {
-	    System.out.println("ingen avtale");
-	}
-	else {
-	    System.out.println(avtaleNr);
-	}
-	
+	System.out.println("Navn: " + navn);	
     }
 
     public String getName() {
 	return navn;
     }
 
-    public boolean avtale() {
-	if (avtaleNr == 0) {
-	    return false;
-	}
-	return true;
-    }
-
+    //returnerer antall narkotiske legemidler legen har skrevet resept paa
     public int antAMidler() {
 	int teller = 0;
-
 	for (Resept resept : resepterSkrevet) {
-	    if (resept.getLegemiddel() instanceof LegemiddelAInjeksjon || resept.getLegemiddel() instanceof LegemiddelALiniment || resept.getLegemiddel() instanceof LegemiddelAPille) {
+	    if (resept.getLegemiddel() instanceof LegemiddelA) {
 		teller++;
 	    }
 	}
 	return teller;
+    }  
+}
+
+class AvtaleLege extends Lege implements Avtale {
+    private int avtaleNummer;
+    
+    AvtaleLege(String navn, int avtale) {
+	super(navn);
+	avtaleNummer = avtale;
+    }
+
+    public int getAvtaleNummer() {
+	return avtaleNummer;
     }
     
+    public void skriv() {
+	super.skriv();
+	System.out.println("Avtalenummer: " + avtaleNummer);
+    }
 }
 
 class SpesialistLege extends Lege {
     
-    SpesialistLege(String navn,int avtaleNr) {
-	super(navn,avtaleNr);
+    SpesialistLege(String navn) {
+	super(navn);
+    }
+    
+    public void skriv() {
+	super.skriv();
+	System.out.println("Spesialistlege");
     }
 }
 
+class SpesialistAvtaleLege extends SpesialistLege implements Avtale {
+    private int avtaleNummer;
+    
+    SpesialistAvtaleLege(String navn, int avtale) {
+	super(navn);
+	avtaleNummer = avtale;
+    }
+
+    public int getAvtaleNummer() {
+	return avtaleNummer;
+    }
+
+    public void skriv() {
+	super.skriv();
+	System.out.println("Avtalenummer: " + avtaleNummer);
+    }
+}
+	
+
 interface Avtale {
+    public int getAvtaleNummer();
 }
 
 
@@ -156,12 +219,12 @@ interface Lik {
     public boolean samme(String navn);
 }
 
-class LegemiddelC {
+abstract class LegemiddelC {
      private String navn;
      private int pris;
      private int idNummer;
      
-     static int antallLegemidler = 1;  //en mer
+     static int antallLegemidler = 0;
      
      LegemiddelC(String navn, int pris) {
 	 this.navn = navn;
@@ -173,10 +236,19 @@ class LegemiddelC {
 	 return pris;
      }
 
+    //Skriver ut navn og id nummer
      public void skriv() {
 	 System.out.println("Legemiddel: " + navn);
 	 System.out.println("\tId nummer: " + idNummer);
      }
+
+    public String hentInfo() {
+	return idNummer + ", " + navn;
+    }
+
+    public int getidNummer() {
+	return idNummer;
+    }
 
 
 }
@@ -196,12 +268,16 @@ class LegemiddelCInjeksjon extends LegemiddelC implements Injeksjon {
     public void skriv() {
 	super.skriv();
 	System.out.println("\tDose: " + dose);
-     }
+    }
+
+    public String hentInfo() {
+	return super.hentInfo() + ", c, injeksjon, " + dose;
+    }
 }
 class LegemiddelAInjeksjon extends LegemiddelA implements Injeksjon {
     private double dose;
 
-    LegemiddelAInjeksjon (String navn, int pris, int narko, double dose) {
+    LegemiddelAInjeksjon (String navn, int pris, double dose, int narko) {
 	super(navn, pris, narko);
 	this.dose = dose;
     }
@@ -213,12 +289,16 @@ class LegemiddelAInjeksjon extends LegemiddelA implements Injeksjon {
     public void skriv() {
 	super.skriv();
 	System.out.println("\tDose: " + dose);
-     }
+    }
+
+    public String hentInfo() {
+	return super.hentInfo() + ", injeksjon, " + dose;
+    }
 }
 class LegemiddelBInjeksjon extends LegemiddelB implements Injeksjon {
     private double dose;
 
-    LegemiddelBInjeksjon (String navn, int pris, int vane, double dose) {
+    LegemiddelBInjeksjon (String navn, int pris, double dose, int vane) {
 	super(navn, pris, vane);
 	this.dose = dose;
     }
@@ -230,6 +310,10 @@ class LegemiddelBInjeksjon extends LegemiddelB implements Injeksjon {
 	super.skriv();
 	System.out.println("\tDose: " + dose);
      }
+
+    public String hentInfo() {
+	return super.hentInfo() + ", injeksjon, " + dose;
+    }
 }
 
 class LegemiddelCPille extends LegemiddelC implements Pille {
@@ -248,11 +332,15 @@ class LegemiddelCPille extends LegemiddelC implements Pille {
 	super.skriv();
 	System.out.println("\tAntall piller: " + antPiller);
      }
+
+    public String hentInfo() {
+	return super.hentInfo() + ", c, pille, " + antPiller;
+    }
 }
 class LegemiddelAPille extends LegemiddelA implements Pille {
     private double antPiller;
 
-    LegemiddelAPille (String navn, int pris, int narko, double antPiller) {
+    LegemiddelAPille (String navn, int pris, double antPiller, int narko) {
 	super(navn, pris, narko);
 	this.antPiller = antPiller;
     }
@@ -264,11 +352,15 @@ class LegemiddelAPille extends LegemiddelA implements Pille {
 	super.skriv();
 	System.out.println("\tAntall piller: " + antPiller);	
      }
+
+    public String hentInfo() {
+	return super.hentInfo() + ", pille, " + antPiller;
+    }
 }
 class LegemiddelBPille extends LegemiddelB implements Pille {
     private double antPiller;
 
-    LegemiddelBPille (String navn, int pris, int vane, double  antPiller) {
+    LegemiddelBPille (String navn, int pris, double  antPiller, int vane) {
 	super(navn, pris, vane);
 	this.antPiller = antPiller;
     }
@@ -279,6 +371,10 @@ class LegemiddelBPille extends LegemiddelB implements Pille {
 	super.skriv();
 	System.out.println("\tAntall piller: " + antPiller);
      }
+
+    public String hentInfo() {
+	return super.hentInfo() + ", pille, " + antPiller;
+    }
 }
 
 class LegemiddelCLiniment extends LegemiddelC implements Liniment {
@@ -296,11 +392,15 @@ class LegemiddelCLiniment extends LegemiddelC implements Liniment {
 	super.skriv();
 	System.out.println("\tVolum: " + volum);
      }
+
+    public String hentInfo() {
+	return super.hentInfo() + ", c, liniment, " + volum;
+    }
 }
 class LegemiddelALiniment extends LegemiddelA implements Liniment {
     private double volum;
 
-    LegemiddelALiniment (String navn, int pris, int narko, double volum) {
+    LegemiddelALiniment (String navn, int pris, double volum, int narko) {
 	super(navn, pris, narko);
 	this.volum = volum;
     }
@@ -312,11 +412,15 @@ class LegemiddelALiniment extends LegemiddelA implements Liniment {
 	super.skriv();
 	System.out.println("\tVolum: " + volum);
     }
+
+    public String hentInfo() {
+	return super.hentInfo() + ", liniment, " + volum;
+    }
 }
 class LegemiddelBLiniment extends LegemiddelB implements Liniment {
     private double volum;
 
-    LegemiddelBLiniment (String navn, int pris, int vane, double volum) {
+    LegemiddelBLiniment (String navn, int pris, double volum, int vane) {
 	super(navn, pris, vane);
 	this.volum = volum;
     }
@@ -327,10 +431,14 @@ class LegemiddelBLiniment extends LegemiddelB implements Liniment {
     public void skriv() {
 	super.skriv();
 	System.out.println("\tVolum: " + volum);
-    } 
+    }
+
+    public String hentInfo() {
+	return super.hentInfo() + ", liniment, " + volum;
+    }
 }
 
-class LegemiddelB extends LegemiddelC {
+abstract class LegemiddelB extends LegemiddelC {
 
     private int vanedannelsesGrad;
 
@@ -341,11 +449,15 @@ class LegemiddelB extends LegemiddelC {
 
     public void skriv() {
 	super.skriv();
-	System.out.println("Vanedannelsesgrad: " + vanedannelsesGrad);
+	System.out.println("\tVanedannelsesgrad: " + vanedannelsesGrad);
+    }
+
+    public String hentInfo() {
+	return super.hentInfo() + ", b, " + vanedannelsesGrad;
     }
 }
 
-class LegemiddelA extends LegemiddelC {
+abstract class LegemiddelA extends LegemiddelC {
 
     private int narkotiskGrad;
 
@@ -356,12 +468,16 @@ class LegemiddelA extends LegemiddelC {
 
     public void skriv() {
 	super.skriv();
-	System.out.println("Narkotisk grad: " + narkotiskGrad);
+	System.out.println("\tNarkotisk grad: " + narkotiskGrad);
+    }
+
+    public String hentInfo() {
+	return super.hentInfo() + ", a, " + narkotiskGrad;
     }
 }
 
 interface Pille {    
-    public double getAntPiller();
+    public double getAntPiller(); //per boks
 }
 
 interface Liniment {  
@@ -369,11 +485,12 @@ interface Liniment {
 }
 
 interface Injeksjon {
-    public double getDose();
+    public double getDose(); //i mg
 }
 
 class Resept {
-    static int antResept = 1;
+
+    static int antResept = 0;
     private LegemiddelC medisin;
     private Lege lege;
     private int personNr;
@@ -398,6 +515,7 @@ class Resept {
 	return personNr;
     }
 
+    //kalles naar personen bruker reseptet, returnerer null om reseptet er ugyldig
     public LegemiddelC brukLegemiddel() {
 	if (reit > 0) {
 	    reit--;
@@ -431,26 +549,31 @@ class Resept {
 	return blaa;
     }
     
+    //skriver ut resept id og antall paafyll igjen
     public void skriv() {
 	System.out.println("Resept id: " + idNummer + "\t" + "Injeksjonsdoser: " + reit);
+    }
+
+    public String hentInfo() {
+	return idNummer + ", h, " + personNr + lege.getName() + String.valueOf(medisin.getidNummer()) + reit;
     }
 }
 
 interface AbstraktTabell<T> {
     public boolean add(int indeks, T objekt);
 
-    public T finnObjekt(int indeks);
+    public T finnObjekt(int indeks) throws FantIkkeObjektException;
 
-    public Iterator iterator();
+    public Iterator<T> iterator();
 	
 }
 
 interface AbstraktSortertEnkelListe<T extends Comparable & Lik>{
     public void add(T objekt);
 
-    public T finnObjekt(String nokkel);
+    public T finnObjekt(String nokkel) throws FantIkkeObjektException;
 
-    public Iterator iterator();
+    public Iterator<T> iterator();
 }
 
 class  Tabell<T> implements AbstraktTabell<T>, Iterable<T> {
@@ -460,14 +583,18 @@ class  Tabell<T> implements AbstraktTabell<T>, Iterable<T> {
     Tabell(int lengde){
 	beholder = (T[]) new Object[lengde];
     }
-    public boolean add(int indeks, T objekt){
-	if (beholder.length - 1 >= indeks && beholder[indeks] == null){
+
+    //returnerer false om indeks plassen er optatt, ellers true
+    public boolean add(int indeks, T objekt) {
+	if (beholder.length > indeks){
+	    if(beholder[indeks] == null) {
 		beholder[indeks] = objekt;
 		return true;
+	    }
+	    return false;
 	}
 
-	if (beholder.length - 1 >= indeks && beholder[indeks] != null) return false;
-
+	//dobler lengden paa arrayen til den er stor nok til aa sette inn paa indeks
 	T[] nybeholder;
 	nybeholder = (T[]) new Object[beholder.length*2];
 
@@ -475,15 +602,15 @@ class  Tabell<T> implements AbstraktTabell<T>, Iterable<T> {
 	    nybeholder[i] = beholder[i];
 	}
 	beholder = nybeholder;
-	this.add(indeks, objekt);
-	return true;
+	return this.add(indeks, objekt);
     }
 
-    public T finnObjekt(int indeks) {
-	if(beholder.length - 1 >= indeks){
+    //returnerer objekt paa plass indeks, kaster Exception om plassen ikke finnes eller er tom
+    public T finnObjekt(int indeks) throws FantIkkeObjektException{
+	if(beholder.length > indeks && beholder[indeks] != null){
 	    return beholder[indeks];
 	}
-	return null;
+	throw new FantIkkeObjektException();
 
     }
 
@@ -500,8 +627,9 @@ class  Tabell<T> implements AbstraktTabell<T>, Iterable<T> {
 	    elementer = (U[]) beholder;
 	}
 
+	//sjekker framover i tabellen om det finnes flere objekter
 	public boolean hasNext() {
-	    for(int i = teller; i < elementer.length; i++){
+	    for(int i = teller; teller < elementer.length; teller++){
 		if (elementer[i] !=  null) {
 		    return true;
 		}
@@ -510,14 +638,12 @@ class  Tabell<T> implements AbstraktTabell<T>, Iterable<T> {
 	}
 	
 	public U next() {
-	    for(int i = teller; i < elementer.length; i++){
-		if (elementer[i] != null){
-		    teller = i + 1;
-		    return elementer[i];
-		}
+	    if (hasNext()) {
+		return elementer[teller++];
 	    }
-	    return null;
+	    return null;  //kaste unntak kanskje?
 	}
+
 	public void remove() throws UnsupportedOperationException {
 	}
     }
@@ -525,45 +651,51 @@ class  Tabell<T> implements AbstraktTabell<T>, Iterable<T> {
 
 class SortertEnkelListe<T extends Comparable & Lik> implements AbstraktSortertEnkelListe<T>, Iterable<T> {
     private Node start;
-    private int teller = 0;
+    private int antNoder = 0;
    
-
-    public void add(T objekt){
-	Node nynode = new Node(objekt);
+    //legger objektet foerst i listen
+    public void add(T nyttObjekt){
+	Node nynode = new Node(nyttObjekt);
 	Node n;
+
+	//om listen er tom
 	if (start == null) {
 	    start = nynode;
+	    antNoder++;
 	    return;
 	}
-
-	if (start.objekt.compareTo(objekt)<0){
+	
+	//om listen bare har ett element
+	if (start.objekt.compareTo(nyttObjekt) < 0){
 	    nynode.neste = start;
 	    start = nynode;
+	    antNoder++;
 	    return;
 	}
-
+	
+	//setter ny node mellom n og n.neste om den er alfabetisk mindre enn n.neste
 	for(n = start; n.neste != null; n = n.neste){
-	    if (n.neste.objekt.compareTo(objekt)< 0){
+	    if (n.neste.objekt.compareTo(nyttObjekt) < 0) {
 		nynode.neste = n.neste;
 		n.neste = nynode;
-		teller++;
+		antNoder++;
 		return;
 	    }
 	}
-		
+	
+	//om det nye objektet skal sist i lista
 	n.neste = nynode;
-	teller++;
+	antNoder++;
     }
 	
 	
-
-    public T finnObjekt(String nokkel){
-	for(Node n =start; n.neste != null; n = n.neste){
+    public T finnObjekt(String nokkel) throws FantIkkeObjektException {
+	for(Node n =start; n != null; n = n.neste){
 	    if (n.objekt.samme(nokkel)){
 		return n.objekt;
 	    }
 	}
-	return null;
+	throw new FantIkkeObjektException();
     }
 
     public Iterator<T> iterator() {
@@ -572,32 +704,32 @@ class SortertEnkelListe<T extends Comparable & Lik> implements AbstraktSortertEn
     }
 
     class Iteratorfactory2 implements Iterator<T>{
-	Node posisjonnode = start;
+	Node posisjonsNode = start;
 
 	public boolean hasNext(){
-	    if(posisjonnode.neste != null)return true;
+	    if(posisjonsNode != null && posisjonsNode.neste != null) return true;
 	    return false;
 	}
 
 	public T next(){
 	    if(hasNext()){
-		T t = posisjonnode.objekt;
-		posisjonnode = posisjonnode.neste;
+		T t = posisjonsNode.objekt;
+		posisjonsNode = posisjonsNode.neste;
 		return t;
 	    }
-	    return null;
+	    return null; //unntak?
 	}
 
 	public void remove(){}
     }
 
-    private class Node{
+    private class Node {
 	T objekt;
 	Node neste;
-	Node(T objekt){
+
+	Node(T objekt) {
 	    this.objekt = objekt;
 	}
-
     }
 }
 
@@ -606,10 +738,11 @@ class EnkelReseptListe implements Iterable<Resept> {
     ReseptNode start;
     ReseptNode siste;
 
+    //legger inn det nye reseptet sist i listen
     public void add(Resept res) {
 	ReseptNode nyNode = new ReseptNode(res);
 
-	if (start == null) {
+	if (start == null) { 
 	    start = nyNode;
 	    siste = nyNode;
 	    return;
@@ -618,13 +751,14 @@ class EnkelReseptListe implements Iterable<Resept> {
 	siste = nyNode;
     }
 
-    public Resept finnResept(int i) {
-	for (ReseptNode n = start; n.neste != null; n = n.neste) {
+    //returnerer reseptet med id nummer lik i, kaster unntak om ikke funnet
+    public Resept finnResept(int i) throws FantIkkeReseptException {
+	for (ReseptNode n = start; n != null; n = n.neste) {
 	    if (n.resept.getIdNummer() == i) {
 		return n.resept;
 	    }
 	}
-	return null; // FIX THIS LATER (Exception)
+	throw new FantIkkeReseptException();
     }
 
     public Iterator<Resept> iterator() {
@@ -640,11 +774,12 @@ class EnkelReseptListe implements Iterable<Resept> {
 	    resept = r;
 	}
     }
-    class IteratorFabrikk implements Iterator<Resept> {
+
+    private class IteratorFabrikk implements Iterator<Resept> {
 	ReseptNode posisjonsNode;
 
-	IteratorFabrikk(ReseptNode r) {
-	    posisjonsNode = r;
+	IteratorFabrikk(ReseptNode start) {
+	    posisjonsNode = start;
 	}
 	
 	public boolean hasNext() {
@@ -670,9 +805,11 @@ class EldsteFoerstReseptListe extends EnkelReseptListe {
 
 class YngsteFoerstReseptListe extends EnkelReseptListe {
 
+    //setter inn nytt objekt foerst
     public void add(Resept res) {
-	ReseptNode nyNode = new ReseptNode(res);
-	
+	ReseptNode nyNode = new ReseptNode(res);	
+
+	//for foerste reseptet
 	if (start == null) {
 	    start = nyNode;
 	    siste = nyNode;
@@ -684,59 +821,61 @@ class YngsteFoerstReseptListe extends EnkelReseptListe {
     }
 }	
 
-class Test {
-
-    Test() {
-	Tabell<String> tabell = new Tabell<String>(4);
-	
-	System.out.println(tabell.add(0, "1"));
-	System.out.println(tabell.add(1, "2"));
-	System.out.println(tabell.add(2, "3"));
-	System.out.println(tabell.add(3, "4"));
-	System.out.println(tabell.add(100,"100"));
-
-    }
+class FantIkkeReseptException extends Exception {
+}
+class FantIkkeObjektException extends Exception {
 }
 
-class UserInterface{
+
+class UserInterface {
+
     Tabell<LegemiddelC> legemiddelTabell = new Tabell<LegemiddelC>(10);
     SortertEnkelListe<Lege> legeListe = new SortertEnkelListe<Lege>();
     Tabell<Person> personTabell = new Tabell<Person>(10);
     EnkelReseptListe reseptListe = new EnkelReseptListe();
-    Scanner scan = new Scanner(System.in);
+    Scanner scan;
     Scanner les;
+
+    UserInterface(Scanner s) {
+	scan = s;
+    }
     
-    public void controll(){
+    //kommandoloekke
+    public void control() throws Exception {
 	int valg = 0;
 
-	while(valg != 5){
-	    System.out.println("1.Opprette og legge inne et nytt legemiddel.");
-	    System.out.println("2.Opprette og legge inne en ny lege.");
-	    System.out.println("3.Opprette og legge inne en ny person.");
-	    System.out.println("4.Opprette og legge inne en ny resept.");
-	    System.out.println("Gi et nummer:");
+	while(valg != 10){
+	    System.out.println("\n\n1.Opprette og legge inn et nytt legemiddel.");
+	    System.out.println("2.Opprette og legge inn en ny lege.");
+	    System.out.println("3.Opprette og legge inn en ny person.");
+	    System.out.println("4.Opprette og legge inn et nytt resept.");
+	    System.out.println("5.Skriv oversikt");
+	    System.out.println("6.Hent ut legemiddel paa resept");
+	    System.out.println("7.Skriv info om person");
+	    System.out.println("8.Skriv info om avtaleleger og narkotiske resepter");
+	    System.out.println("9.Skriv info om personer og vanedannende resepter");
+	    System.out.println("10.Avslutt.\n");
+	    System.out.print("Gi et nummer: ");
 	    valg = scan.nextInt();
+
 	    switch(valg) {
-	    case 1:
-		nyLegemiddel();
-		break;
-	    case 2:
-		nyLege();
-		break;
-	    case 3:
-		nyPerson();
-		break;
-	    case 4:
-		nyResept();
-		break;
-	    case 5:
-		break;
+	    case 1: nyLegemiddel();break;
+	    case 2: nyLege(); break;
+	    case 3: nyPerson(); break;
+	    case 4: nyResept(); break;
+	    case 5: skrivAlle(); break;
+	    case 6: hentLegemiddel(); break;
+	    case 7: skrivPersonInfo(); break;
+	    case 8: skrivLeger(); break;
+	    case 9: skrivPersoner(); break;
+	    case 10:  break;
 	    }
 	}
     }
+
     public void nyLegemiddel(){
-	String typeabc = null;
-	String type = null;
+	String typeabc = "";
+	String type = "";
 	String navn;
 	int pris;
 	int grad;
@@ -744,42 +883,42 @@ class UserInterface{
 	LegemiddelC nyLegemiddel = null;
 
 
-	System.out.println("Gi navn av Legemiddelet: ");
-	navn = scan.next();
-	System.out.println("Gi pris av Legemiddelet: ");
+	System.out.print("Gi navn av Legemiddelet: ");
+	navn = (scan.next() + scan.nextLine()).trim();
+	System.out.print("Gi pris av Legemiddelet: ");
 	pris = scan.nextInt();
 	
 	while(!(typeabc.equals("A")||typeabc.equals("B")||typeabc.equals("C"))){
-	    System.out.println("Gi type av Legemiddelet: A, B, eller C ");
+	    System.out.print("Gi type av Legemiddelet: A, B, eller C: ");
 	    typeabc = scan.next();
 	    switch(typeabc){
 	    case "A":
 		while(!(type.equals("Injeksjon")||type.equals("Liniment")||type.equals("Pille"))){
-		    System.out.println("Gi pakkingform av Legemiddelet: Injeksjon,Liniment,eller Pille");
+		    System.out.print("Gi pakkingform av Legemiddelet: Injeksjon, Liniment, eller Pille: ");
 		    type = scan.next();
 		    switch(type){
 		    case "Injeksjon":
-			System.out.println("Gi narkotiskgrad:");
+			System.out.print("Gi narkotiskgrad: ");
 			grad = scan.nextInt();
-			System.out.println("Gi dose:");
+			System.out.print("Gi dose: ");
 			volum = scan.nextDouble();
-			nyLegemiddel = new LegemiddelAInjeksjon(navn,pris,grad, volum);
+			nyLegemiddel = new LegemiddelAInjeksjon(navn,pris,volum, grad);
 			legemiddelTabell.add(LegemiddelC.antallLegemidler,nyLegemiddel);
 			break;
 		    case"Liniment":
-			System.out.println("Gi narkotiskgrad:");
+			System.out.print("Gi narkotiskgrad: ");
 			grad = scan.nextInt();
-			System.out.println("Gi volum:");
+			System.out.println("Gi volum: ");
 			volum = scan.nextDouble();
-			nyLegemiddel = new LegemiddelALiniment(navn,pris,grad, volum);
+			nyLegemiddel = new LegemiddelALiniment(navn,pris,volum, grad);
 			legemiddelTabell.add(LegemiddelC.antallLegemidler,nyLegemiddel);
 			break;
 		    case"Pille":
-			System.out.println("Gi narkotiskgrad:");
+			System.out.print("Gi narkotiskgrad: ");
 			grad = scan.nextInt();
-			System.out.println("Gi Antallpiller:");
+			System.out.print("Gi Antallpiller: ");
 			volum = scan.nextDouble();
-			nyLegemiddel = new LegemiddelAPille(navn,pris,grad, volum);
+			nyLegemiddel = new LegemiddelAPille(navn,pris,volum, grad);
 			legemiddelTabell.add(LegemiddelC.antallLegemidler,nyLegemiddel);
 			break;
 		    }
@@ -787,31 +926,31 @@ class UserInterface{
 		
 	    case "B":
 		while(!(type.equals("Injeksjon")||type.equals("Liniment")||type.equals("Pille"))){
-		    System.out.println("Gi pakkingform av Legemiddelet: Injeksjon,Liniment,eller Pille");
+		    System.out.print("Gi pakkingform av Legemiddelet: Injeksjon, Liniment, eller Pille");
 		    type = scan.next();
 		    switch(type){
 		    case "Injeksjon":
-			System.out.println("Gi vanedannelsesgrad:");
+			System.out.print("Gi vanedannelsesgrad: ");
 			grad = scan.nextInt();
-			System.out.println("Gi dose:");
+			System.out.print("Gi dose: ");
 			volum = scan.nextDouble();
-			nyLegemiddel = new LegemiddelBInjeksjon(navn,pris,grad, volum);
+			nyLegemiddel = new LegemiddelBInjeksjon(navn,pris,volum, grad);
 			legemiddelTabell.add(LegemiddelC.antallLegemidler,nyLegemiddel);
 			break;
 		    case"Liniment":
-			System.out.println("Gi vanedannelsesgrad:");
+			System.out.print("Gi vanedannelsesgrad: ");
 			grad = scan.nextInt();
-			System.out.println("Gi volum:");
+			System.out.print("Gi volum: ");
 			volum = scan.nextDouble();
-			nyLegemiddel = new LegemiddelBLiniment(navn,pris,grad, volum);
+			nyLegemiddel = new LegemiddelBLiniment(navn,pris,volum, grad);
 			legemiddelTabell.add(LegemiddelC.antallLegemidler,nyLegemiddel);
 			break;
 		    case"Pille":
-			System.out.println("Gi vanedannelsesgrad:");
+			System.out.print("Gi vanedannelsesgrad: ");
 			grad = scan.nextInt();
-			System.out.println("Gi Antallpiller:");
+			System.out.print("Gi Antallpiller: ");
 			volum = scan.nextDouble();
-			nyLegemiddel = new LegemiddelBPille(navn,pris,grad, volum);
+			nyLegemiddel = new LegemiddelBPille(navn,pris,volum, grad);
 			legemiddelTabell.add(LegemiddelC.antallLegemidler,nyLegemiddel);
 			break;
 		    }
@@ -819,23 +958,23 @@ class UserInterface{
 		
 	    case "C":
 		while(!(type.equals("Injeksjon")||type.equals("Liniment")||type.equals("Pille"))){
-		    System.out.println("Gi pakkingform av Legemiddelet: Injeksjon,Liniment,eller Pille");
+		    System.out.print("Gi pakkingform av Legemiddelet: Injeksjon, Liniment, eller Pille");
 		    type = scan.next();
 		    switch(type){
 		    case "Injeksjon":
-			System.out.println("Gi dose:");
+			System.out.print("Gi dose: ");
 			volum = scan.nextDouble();
 			nyLegemiddel = new LegemiddelCInjeksjon(navn,pris,volum);
 			legemiddelTabell.add(LegemiddelC.antallLegemidler,nyLegemiddel);
 			break;
 		    case"Liniment":
-			System.out.println("Gi volum:");
+			System.out.print("Gi volum: ");
 			volum = scan.nextDouble();
 			nyLegemiddel = new LegemiddelCLiniment(navn,pris,volum);
 			legemiddelTabell.add(LegemiddelC.antallLegemidler,nyLegemiddel);
 			break;
 		    case"Pille":
-			System.out.println("Gi Antallpiller:");
+			System.out.print("Gi Antallpiller: ");
 			volum = scan.nextDouble();
 			nyLegemiddel = new LegemiddelCPille(navn,pris,volum);
 			legemiddelTabell.add(LegemiddelC.antallLegemidler,nyLegemiddel);
@@ -845,53 +984,46 @@ class UserInterface{
 	    }
 	}
     }
-    public void nyLege(){
+
+    //ber om info fra bruker og oppretter og legger inn ny lege i lister
+    public void nyLege() {
 	String navn;
-	int avtaleNr = 0;
+	boolean avtale = false;
 	boolean spesialistLege = false;
-	boolean avtaleLege = false;
-	String yn = "";
-	String jn = "";
 	Lege nyLege = null;
+	int avtaleNr = -1;
 
-	System.out.println("Gi legens navn:");
-	navn = scan.next(); 
+	System.out.print("Gi legens navn: ");
+	navn = (scan.next() + scan.nextLine()).trim(); 	
+	spesialistLege = ja("Er legen spesialist?");
+	avtale = ja("Har legen en avtale?");
 
-	System.out.println("Er legen spesialistlege? y/n");
-	yn = scan.next();
-	if(yn.equals("y"))spesialistLege = true;
-
-	System.out.println("Er legen avtalelege? y/n");
-	jn = scan.next();
-	if(jn.equals("y"))avtaleLege = true;
-
-	if (avtaleLege){
-	    System.out.println("Gi legens avtalenummer:");
+	if (avtale) {	    
+	    System.out.print("Avtalenummer: ");
 	    avtaleNr = scan.nextInt();
 	}
-
-	if (spesialistLege){
-	    if (avtaleLege){
-		nyLege = new SpesialistLegeMedAvtale(navn, avtaleNr);
-	    }else if (!avtaleLege){
-		nyLege = new SpesialistLege(navn,avtaleNr);
-	    }
-	}else if (!spesialistLege){ 
-	    if (avtaleLege){
-		nyLege = new LegeMedAvtale(navn, avtaleNr);
-	    }else if (!avtaleLege){
-		nyLege = new Lege(navn,avtaleNr);
-	    }
+	//lager riktig type lege
+	if (avtale && spesialistLege) {
+	    nyLege = new SpesialistAvtaleLege(navn, avtaleNr);
+	}
+	else if (avtale && !spesialistLege) {
+	    nyLege = new AvtaleLege(navn, avtaleNr);
+	}	
+	else if (spesialistLege) {
+	    nyLege = new SpesialistLege(navn);
+	}
+	else {
+	    nyLege = new Lege(navn);
 	}
 
 	legeListe.add(nyLege);
     }
 
     public void nyPerson() {
-	System.out.println("Navn: ");
-	String navn = scan.next();
+	System.out.print("Navn: ");
+	String navn = (scan.next() + scan.nextLine()).trim();
 	
-	if (jaNei("Mann?")) {
+	if (ja("Mann?")) {
 	    personTabell.add(Person.antallPersoner, new Mann(navn));
 	}
 	else {
@@ -899,24 +1031,24 @@ class UserInterface{
 	}
     }
 
-    public void nyResept() {
+    public void nyResept() throws FantIkkeObjektException{
 	Resept nyResept = null;
 	
-	System.out.println("Legemiddel nummer: ");
+	System.out.print("Legemiddel nummer: ");
 	int nr = scan.nextInt();
 	LegemiddelC legemiddel = legemiddelTabell.finnObjekt(nr);
 
-	System.out.println("Legens navn: ");
-	String legeNavn = scan.next();
+	System.out.print("Legens navn: ");
+	String legeNavn = (scan.next() + scan.nextLine()).trim();
 	Lege lege = legeListe.finnObjekt(legeNavn);
 
-	System.out.println("Personnummer: ");
+	System.out.print("Personnummer: ");
 	int  persNr = scan.nextInt();
 
-	System.out.println("Antall: ");
+	System.out.print("Antall: ");
 	int reit = scan.nextInt();
 
-	boolean blaa = jaNei("Blaatt resept?");	 
+	boolean blaa = ja("Blaatt resept?");	 
 
 	nyResept = new Resept(legemiddel, lege, persNr, reit, blaa);
 	reseptListe.add(nyResept);
@@ -924,10 +1056,11 @@ class UserInterface{
 	personTabell.finnObjekt(persNr).add(nyResept);
     }
 
-    public boolean jaNei(String spoersmaal) {
+    //ber bruker om svar paa et ja/nei spoersmaal 
+    public boolean ja(String spoersmaal) {
 
 	while (true) {
-	    System.out.println(spoersmaal + " (y/n)");
+	    System.out.print(spoersmaal + " (y/n): ");
 	    String svar = scan.next();
 
 	    if (svar.equals("y")) {
@@ -939,18 +1072,22 @@ class UserInterface{
 	}
     }
 
-    public void lesFil() {
+    public void lesFil(String filnavn) {
+	int linjeTeller = 0;
+
 	try {
-	    les = new Scanner(new File("filnavn.txt"));
+	    les = new Scanner(new File(filnavn));
 	}
 	catch (Exception e) {
-	    System.out.println("damn");
+	    System.out.println("noe gikk galt");
+	    e.printStackTrace();
 	}
-	les.useDelimiter(",+|\\s+");
+	les.useDelimiter("(,+)|(\\s+)");
 
-	les.nextLine();
+	//leser og oppretter personer
+	les.nextLine(); linjeTeller++;
 	while (!les.hasNext("#")) {
-	    String[] info = les.nextLine().split(", ");
+	    String[] info = les.nextLine().split(", "); linjeTeller++;
 	    if (info[2].equals("m")) {
 		personTabell.add(Integer.valueOf(info[0]), new Mann(info[1]));
 	    }
@@ -958,89 +1095,156 @@ class UserInterface{
 		personTabell.add(Integer.valueOf(info[0]), new Kvinne(info[1]));
 	    }
 	}
-	les.nextLine();
-	les.nextLine();
-	while (!les.hasNext("#")) {
-	    String[] info = les.nextLine().split(", ");
+
+	//leser og oppretter Legemidler
+	les.nextLine(); linjeTeller++;
+	les.nextLine(); linjeTeller++;
+	while (!les.hasNext("#")) { 
+  
+	    LegemiddelC nyttLegemiddel = null;
+	    int styrke;
+	    String[] info = les.nextLine().split(", "); linjeTeller++;
+	    int idNummer = Integer.valueOf(info[0]);
 	    String navn = info[1];
 	    String form = info[2];
-	    form = form.replaceFirst(".", String.valueOf(form.charAt(0)).toUpperCase());
-	    System.out.println(form);
 	    String type = info[3].toUpperCase();
 	    int pris = Integer.valueOf(info[4]);
 	    double mengde = Double.valueOf(info[5]);
 
-	    try {
-		int styrke = Integer.valueOf(info[6]);
-		String klasseNavn = "Legemiddel" + type + form;
-		Class klasse = Class.forName(klasseNavn);
-		//Contructor <Class.forName(klasseNavn)> c = klasse.getContructor(String.Class, Integer.TYPE, Double.TYPE, Integer.TYPE);
+	    //Opretter riktig type legiddel objekt (for A og B)
+	    if (info.length > 6) {
+		styrke = Integer.valueOf(info[6]);
+		switch (type) {
+		case "A":
+		    switch (form) {
+		    case "injeksjon": nyttLegemiddel = new LegemiddelAInjeksjon(navn, pris, mengde, styrke); break;
+		    case "pille": nyttLegemiddel = new LegemiddelAPille(navn, pris, mengde, styrke); break;	
+		    case "liniment": nyttLegemiddel = new LegemiddelALiniment(navn, pris, mengde, styrke); break;
+		    }
+		    break;
+		case "B":
+		    switch (form) {
+		    case "injeksjon": nyttLegemiddel = new LegemiddelBInjeksjon(navn, pris, mengde, styrke); break;
+		    case "pille": nyttLegemiddel = new LegemiddelBPille(navn, pris, mengde, styrke); break;	
+		    case "liniment": nyttLegemiddel = new LegemiddelBLiniment(navn, pris, mengde, styrke); break; 
+		    }
+		    break;
+		}
+	    }
+
+	    //Om legemiddelet skal vaere av typen C
+	    else {
+		switch (form) {
+		case "injeksjon": nyttLegemiddel = new LegemiddelCInjeksjon(navn, pris, mengde); break;
+		case "pille": nyttLegemiddel = new LegemiddelCPille(navn, pris, mengde); break;	
+		case "liniment": nyttLegemiddel = new LegemiddelCLiniment(navn, pris, mengde); break;		    
+		}
+	    }
+	    
+	    legemiddelTabell.add(idNummer, nyttLegemiddel);
+	}
 		
-	    }
-
-	    catch (Exception e) {
-	    }
-	}
-	
-	les.nextLine();
-	les.nextLine();
+	//leser og oppretter leger
+	les.nextLine(); linjeTeller++;
+	les.nextLine(); linjeTeller++;
 	while(!les.hasNext("#")) {
-	    String[] info = les.nextLine().split(", ");
-	    String navn = info[1];
-	    int avtaleNr = Integer.valueOf(info[3]);
-	    if (info[2].equals("1")){
-		SpesialistLege nyLege = new SpesialistLege(navn,avtaleNr);
-		legeListe.add(nyLege);
-	    }else{ 
-		Lege nyLege = new Lege(navn,avtaleNr); 
-		legeListe.add(nyLege);
-	    }
+	    Lege nyLege;
+	    String[] info = les.nextLine().split(", "); linjeTeller++;
+	    String navn = info[0];
+	    int avtaleNr = Integer.valueOf(info[2]);
+	    boolean spesialist = info[1].equals("1");
 
+	    //opretter riktig type lege og putter dem i listen
+	    if (spesialist && avtaleNr != 0){
+		nyLege = new SpesialistAvtaleLege(navn, avtaleNr);
+	    }
+	    else if (spesialist && avtaleNr == 0) { 
+		nyLege = new SpesialistLege(navn); 
+	    }
+	    else if (avtaleNr != 0) {
+		nyLege = new AvtaleLege(navn, avtaleNr);
+	    }
+	    else {
+		nyLege = new Lege(navn);
+	    }
+	    legeListe.add(nyLege);
 	}
 	
-	les.nextLine();
-	les.nextLine();
+
+	//leser og oppretter resepter
+	les.nextLine(); linjeTeller++;
+	les.nextLine(); linjeTeller++;
 	while(!les.hasNext("#")){
-	    String[] info = les.nextLine().split(", ");
+	    String[] info = les.nextLine().split(", "); linjeTeller++;
 	    boolean blaa = false;
-	    if(info[2].equals("b")) blaa = true;
-	    int persNr =Integer.valueOf(info[2]);
+	    if(info[1].equals("b")) blaa = true;
+	    int persNr = Integer.valueOf(info[2]);
 	    String legeNavn = info[3];
 	    int legemiddelNr = Integer.valueOf(info[4]);
 	    int reit = Integer.valueOf(info[5]);
-	    LegemiddelC legemiddel = legemiddelTabell.finnObjekt(legemiddelNr);
-	    Lege lege = legeListe.finnObjekt(legeNavn);
-	    Resept nyResept = new Resept(legemiddel, lege, persNr, reit, blaa);
-	    reseptListe.add(nyResept);
-	    lege.add(nyResept);
-	    int personNr = Integer.valueOf(persNr);
-	    personTabell.finnObjekt(persNr).add(nyResept);
+
+	    try {
+		LegemiddelC legemiddel = legemiddelTabell.finnObjekt(legemiddelNr);
+		Lege lege = legeListe.finnObjekt(legeNavn);
+		Resept nyResept = new Resept(legemiddel, lege, persNr, reit, blaa);
+
+		reseptListe.add(nyResept);
+		lege.add(nyResept);
+		int personNr = Integer.valueOf(persNr);
+		personTabell.finnObjekt(persNr).add(nyResept);
+	    }
+
+	    catch (FantIkkeObjektException e) {
+		System.out.println("Noe gikk galt paa linje " + linjeTeller + " under lesing av filen");
+	    }
 	}
 	
     }
+    
+    //henter ut legemiddel og skriver ut informasjon om resept
+    public LegemiddelC hentLegemiddel() throws Exception {
+	int persNr = -1;
+	int reseptNr = -1;
+	Person person = null;
+	Resept res = null;
+	LegemiddelC drug = null;
 
-    public LegemiddelC hentResept(int persNr, int reseptNr) {
-	Person person = personTabell.finnObjekt(persNr);
-	Resept res = person.getResept(reseptNr);
-	LegemiddelC drug  = res.getLegemiddel();
+	System.out.print("PersonNr: ");
+	persNr = scan.nextInt();
+	person = personTabell.finnObjekt(persNr);
+	System.out.print("ReseptNr: ");
+	reseptNr = scan.nextInt();
+	res = person.getResept(reseptNr);
+	drug  = res.brukLegemiddel();
+
 	if (drug == null) {
 	    System.out.println("Ugyldig resept");
 	    return null;
 	}
 	else {
-	    System.out.println("Det blir " + res.getPris() + "kr takk.");
+	    System.out.println("\n\nPris: " + res.getPris());
 	}
 
 	System.out.println("Legens navn: " + res.getLege().getName());
 	System.out.println("Pasientens navn: " + person.getName());
-	res.getLegemiddel().skriv();
-	return res.getLegemiddel();
+	drug.skriv();
+	return drug;
     }
 
+    //ber om personnummer og skriver ut gyldige blaa resepter til person
+    public void skrivPersonInfo() throws Exception {
+	int persNr = -1;
+	System.out.print("\nPersonnummer: ");
+	persNr = scan.nextInt();
+	Person p = personTabell.finnObjekt(persNr);
+	p.skrivResepter();
+    }
+	
     public void skrivLeger() {
 	
 	for (Lege lege : legeListe) {
-	    if (lege.avtale()) {
+	    if (lege instanceof Avtale) {
+		System.out.println();
 	 	lege.skriv();
 	 	System.out.println("Antall narkotiske resepter skrevet: " + lege.antAMidler());
 	    }
@@ -1053,7 +1257,7 @@ class UserInterface{
 	int kvinner = 0;
 	int total = 0;
 	for (Person pers : personTabell){
-	    System.out.println(pers.getName());
+	    System.out.println("\n" + pers.getName());
 	    int antall =  pers.antVaneLegemidler();
 	    System.out.println("Antall Vane Legemidler: " +  antall);
 	    if(pers instanceof Mann){
@@ -1064,7 +1268,7 @@ class UserInterface{
 		total += antall;
 	    }
 	}
-	System.out.println("Antall vane legemidler skrevet totalt: " + total);
+	System.out.println("\n\nAntall vane legemidler skrevet totalt: " + total);
 	System.out.println("Antall vane legemidler skrevet til menn: " + menn);
 	System.out.println("Antall vane legemidler skrevet til kvinner: " + kvinner);
     }
@@ -1085,11 +1289,43 @@ class UserInterface{
 	    System.out.println();
 	}
     }
-	
-
-	
-    
 }
+
+//     public void skrivTilFil() {
+// 	PrintWriter filSkriv = null;
+	
+// 	try {
+// 	    filSkriv = new PrintWriter(new FileWriter(new File("filnavn.txt"), false));
+// 	}
+
+// 	catch (Exception e) {
+// 	    System.out.println("uff da");
+// 	}
+
+// 	filSkriv.println("# Personer (nr, navn, kjønn)");
+// 	for (Person p : personTabell) {
+// 	    filSkriv.println(p.hentInfo());
+// 	}
+	
+// 	filSkriv.println("\n# Legemidler (nr, navn, form, type, pris, mengde [, styrke])");
+// 	for (LegemiddelC l : legemiddelTabell) {
+// 	    filSkriv.println(l.hentInfo());
+// 	}
+
+// 	filSkriv.println("\n# Leger (navn, spesialist, avtalenr / 0 hvis ingen avtale)");
+// 	for (Lege lege : legeListe) {
+// 	    filSkriv.println(lege.hentInfo());
+// 	}
+
+// 	filSkriv.println("\n# Resepter (nr, hvit/blÃ¥, persNummer, legeNavn, legemiddelNummer, reit)");
+// 	for (Resept r : reseptListe) {
+// 	    filSkriv.println(r.hentInfo());
+// 	}
+
+// 	filSkriv.println("# Slutt");
+// 	filSkriv.close();
+//     }
+// }
 	
 	
 	    
